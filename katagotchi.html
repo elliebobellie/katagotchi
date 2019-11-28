@@ -1,0 +1,637 @@
+<html>
+    <head>
+        <script>
+            var canvas, ctx;
+
+            var pet;
+            var petname;
+            var petdx = 0;
+            var petdxconst = 2;
+            var petLegdx = 2;
+            var petEyesdx = 0;
+            var petTailAngle = .2;
+            var eyes;
+            var ear;
+
+            var switchTailDir = false;
+            var switchLegDir = false;
+            var switchEyesDir = false;
+            var hasPetDecidedOnMovement = false;
+            var petGoRight = false;
+            var petGoLeft = false;
+
+            var moodText;
+            var statsText;
+            var friendshipText;
+            var mood; // happy, sad, bored, angry, hangry
+            var stats; // hunger, energy, fun
+            var friendship; // ❤️ 10 is max
+            var interactionCounter;
+
+            var actions;
+            var currMousePos;
+            var isMouseDown = false;
+            var isEyesClosed = false;
+            var interactWithUser;
+            var petInCenterForFeed = false;
+
+            var isPetDead = false;
+
+            function init() {
+                canvas = document.getElementById("canvas");
+                ctx = canvas.getContext("2d");
+                petPosition = {
+                        "side":{ // pet is side position
+                            "face":{"x":380,"y":280,"width":100,"height":100},
+                            "tail":{"x":100,"y":320,"width":150,"height":30},
+                            "body":{"x":180,"y":250,"width":200,"height":150},
+                            "legs":{
+                                "left":{"x":240,"y":400,"width":40,"height":30},
+                                "right":{"x":290,"y":400,"width":40,"height":30}
+                            }
+                        }, // pet is sitting position
+                        "sitting":{
+                            "face":{"x":250, "y":180, "width":100, "height":100},
+                            "tail":{"x":285, "y":400, "width":150, "height":30},
+                            "body":{"x":225, "y":250, "width":150, "height":200},
+                            "legs":{
+                                "left":{"x":250, "y":360, "width":40, "height":90},
+                                "right":{"x":300, "y":360, "width":40, "height":90}
+                            }
+                        }
+                };
+                petname = "Meowly Cyrus";
+                pet = {x:petPosition.side.body.x+petPosition.side.body.width,y:0,name:petname, position:"side", positionDir: "right", petPosVals: petPosition};
+                eyes = {
+                    left:{
+                        x:pet.petPosVals.side.face.x+50, 
+                        y:pet.petPosVals.side.face.y+40
+                    }, 
+                    right:{
+                        x:pet.petPosVals.side.face.x+80, 
+                        y:pet.petPosVals.side.face.y+40
+                    }
+                };
+                ear = {
+                    left: {
+                        1:{x:0,y:30},
+                        2:{x:40,y:0},
+                        3:{x:0,y:0},
+                        4:{x:0,y:30}
+                    },
+                    right: {
+                        1:{x:100,y:30},
+                        2:{x:80,y:0},
+                        3:{x:100,y:0},
+                        4:{x:100,y:30}
+                    }
+                };
+                moodText = "Mood: ";
+                statsText = "Stats: "
+                friendshipText = "";
+                mood = "happy";
+                stats = {
+                    hunger:{
+                        name: "Hunger",
+                        value: 8
+                    }, 
+                    energy:{
+                        name: "Energy",
+                        value: 8
+                    },
+                    fun:{
+                        name: "Fun",
+                        value: 8
+                    }
+                };
+                friendship = 0;
+                interactionCounter = {
+                    numTimesFed: 1,
+                    numTimesPlayed: 1,
+                    numTimesSlept: 1
+                };
+                
+                actions = {play: false, feed:false, sleep:false};
+                currMousePos = {x:-1,y:-1};
+                interactWithUser = false;
+  
+                startStatsChange();
+                setMouseHandler();
+                gameLoop();
+            }
+
+            function startStatsChange() {
+                setInterval( function() {
+                    if (stats.energy.value > 0) {
+                        stats.energy.value -= 2;
+                    }
+                }, 240000);
+                setInterval( function() {
+                    if (stats.hunger.value > 0) {
+                        stats.hunger.value -= 1;
+                    }
+                }, 180000);
+                setInterval( function() {
+                    if (stats.fun.value > 0) {
+                        stats.fun.value -= 1;
+                    }
+                }, 60000);
+            }
+
+            function cancelAllAction() {
+                actions.play = false;
+                actions.feed = false;
+                actions.sleep = false;
+                isMouseDown = false;
+                interactWithUser = false;
+                isEyesClosed = false;
+                petInCenterForFeed = false;
+            }
+
+            function spawnPetToy() {
+                if (!isPetDead) {
+                    actions.play = true;
+                    interactWithUser = true;
+                    interactionCounter.numTimesPlayed +=1;
+                    checkInteractionCounter();
+                }
+            }
+
+            function makeSleep() {
+                if (!isPetDead) {
+                    stats.energy.value = 10;
+                    actions.sleep = true;
+                    interactWithUser = true;
+                    interactionCounter.numTimesSlept +=1;
+                    checkInteractionCounter();
+                    setTimeoutToWakeUpPet();
+                }   
+            }
+
+            function feedPet() {
+                if (!isPetDead) {
+                    actions.feed = true;
+                    interactWithUser = true;
+                    interactionCounter.numTimesFed +=1;
+                    checkInteractionCounter();
+                }
+            }
+
+            function setTimeoutToWakeUpPet() {
+                setTimeout(function(){ cancelAllAction(); }, 6000);
+            }
+
+            function setMouseHandler() {
+                canvas.addEventListener('mousedown', function(e) {
+                    isMouseDown = true;
+                    values = getMousePos(e);
+                    currMousePos.x = values[0];
+                    currMousePos.y = values[1];
+                });
+            }
+            
+            function getMousePos(evt) {
+                rect = canvas.getBoundingClientRect();
+                x = evt.clientX - rect.left;
+                y = evt.clientY - rect.top
+                return [
+                    evt.clientX - rect.left,
+                    evt.clientY - rect.top
+                ];
+            }
+
+            function drawPet() {
+                ctx.fillStyle = "rgb(204, 122, 0)";
+                ctx.translate(0,0);
+                if ( pet.position == "side") {
+                    // pet facing right  
+                    if (pet.positionDir == "right") {
+                        for (var petPosition in pet.petPosVals) {
+                            if (petPosition == "side") {
+                                for (var petPart in pet.petPosVals[petPosition]) {
+                                    if (petPart == "legs") {
+                                        for (var petLeg in pet.petPosVals[petPosition][petPart]) {
+                                            ctx.fillRect (pet.petPosVals[petPosition][petPart][petLeg].x+petdx+petLegdx, pet.petPosVals[petPosition][petPart][petLeg].y, pet.petPosVals[petPosition][petPart][petLeg].width, pet.petPosVals[petPosition][petPart][petLeg].height); 
+                                        }
+                                        continue;
+                                    }
+                                    ctx.fillRect (pet.petPosVals[petPosition][petPart].x+petdx, pet.petPosVals[petPosition][petPart].y, pet.petPosVals[petPosition][petPart].width, pet.petPosVals[petPosition][petPart].height); 
+                                }    
+                            }    
+                        }
+                        ctx.fillStyle = "rgb(0, 0, 0)";
+                        for (var i in eyes) {
+                            ctx.beginPath();
+                            ctx.arc(eyes[i].x+petdx, eyes[i].y, 5, 0, Math.PI * 2, true);  
+                            ctx.fill();
+                            ctx.stroke();
+                        }
+                        for (var earside in ear) {
+                            ctx.beginPath();
+                            ctx.moveTo(pet.petPosVals.side.face.x+ear[earside][1].x+petdx, pet.petPosVals.side.face.y+ear[earside][1].y);
+                            ctx.lineTo(pet.petPosVals.side.face.x+ear[earside][2].x+petdx, pet.petPosVals.side.face.y+ear[earside][2].y);
+                            ctx.lineTo(pet.petPosVals.side.face.x+ear[earside][3].x+petdx, pet.petPosVals.side.face.y+ear[earside][3].y);
+                            ctx.lineTo(pet.petPosVals.side.face.x+ear[earside][4].x+petdx, pet.petPosVals.side.face.y+ear[earside][4].y);
+                            ctx.stroke();
+                        }
+                    } else { // draw pet facing left (mirrored) 
+                        for (var petPosition in pet.petPosVals) {
+                            if (petPosition == "side") {
+                                for (var petPart in pet.petPosVals[petPosition]) {
+                                    if (petPart == "legs") {
+                                        for (var petLeg in pet.petPosVals[petPosition][petPart]) {
+                                            ctx.save();
+                                            ctx.translate(canvas.width-pet.petPosVals[petPosition][petPart][petLeg].x,pet.petPosVals[petPosition][petPart][petLeg].y);
+                                            ctx.scale(-1,1); 
+                                            ctx.fillRect (0-petdx-petLegdx, 0, pet.petPosVals[petPosition][petPart][petLeg].width, pet.petPosVals[petPosition][petPart][petLeg].height); 
+                                            ctx.restore();
+                                        }
+                                        continue;
+                                    }
+                                    ctx.save();
+                                    ctx.translate(canvas.width-pet.petPosVals[petPosition][petPart].x,pet.petPosVals[petPosition][petPart].y);
+                                    ctx.scale(-1,1); 
+                                    ctx.fillRect (0-petdx, 0, pet.petPosVals[petPosition][petPart].width, pet.petPosVals[petPosition][petPart].height);
+                                    ctx.restore();
+                                }    
+                            }    
+                        }
+                        ctx.fillStyle = "rgb(0, 0, 0)";
+                        for (var i in eyes){
+                            ctx.save();
+                            ctx.translate(canvas.width-eyes[i].x,eyes[i].y);
+                            ctx.scale(-1,1); 
+                            ctx.beginPath();
+                            ctx.arc(0-petdx, 0, 5, 0, Math.PI * 2, true);  
+                            ctx.fill();
+                            ctx.restore();	
+                        }
+                        for (var earside in ear) {
+                            ctx.save();
+                            ctx.translate(canvas.width-pet.petPosVals.side.face.x,pet.petPosVals.side.face.y);
+                            ctx.scale(-1,1); 
+                            ctx.beginPath();
+                            ctx.moveTo(ear[earside][1].x-petdx, ear[earside][1].y);
+                            ctx.lineTo(ear[earside][2].x-petdx, ear[earside][2].y);
+                            ctx.lineTo(ear[earside][3].x-petdx, ear[earside][3].y);
+                            ctx.lineTo(ear[earside][4].x-petdx, ear[earside][4].y);
+                            ctx.restore();	
+                            ctx.stroke();    
+                        }  	
+                    }
+                } else if (pet. position == "sitting") {
+                    // draw face and body
+                    for (var petPosition in pet.petPosVals) {
+                        if (petPosition == "sitting") {
+                            for (var petPart in pet.petPosVals[petPosition]) {
+                                if (petPart == "tail") {
+                                    if (!isPetDead && !isEyesClosed) {
+                                        // animate tail
+                                        ctx.save();
+                                        ctx.translate(pet.petPosVals.sitting.tail.x+petdx,pet.petPosVals.sitting.tail.y);
+                                        ctx.rotate(petTailAngle);
+                                        ctx.fillRect (0, 0, pet.petPosVals.sitting.tail.width, pet.petPosVals.sitting.tail.height);
+                                        ctx.restore();  
+                                        continue;
+                                    }
+                                }
+                                if (petPart == "legs") {
+                                    for (var petLeg in pet.petPosVals[petPosition][petPart]) {
+                                        ctx.beginPath();
+                                        ctx.rect (pet.petPosVals[petPosition][petPart][petLeg].x+petdx, pet.petPosVals[petPosition][petPart][petLeg].y, pet.petPosVals[petPosition][petPart][petLeg].width, pet.petPosVals[petPosition][petPart][petLeg].height); 
+                                        ctx.stroke(); 
+                                    }
+                                    continue;
+                                }
+                                ctx.fillRect (pet.petPosVals[petPosition][petPart].x+petdx, pet.petPosVals[petPosition][petPart].y, pet.petPosVals[petPosition][petPart].width, pet.petPosVals[petPosition][petPart].height); 
+                            }    
+                        }    
+                    }
+                    ctx.fillStyle = "rgb(0, 0, 0)";
+                    sittingEyes = {
+                        left:{
+                            x:pet.petPosVals.sitting.face.x+50, 
+                            y:pet.petPosVals.sitting.face.y+40
+                        }, 
+                        right:{
+                            x:pet.petPosVals.sitting.face.x+80, 
+                            y:pet.petPosVals.sitting.face.y+40
+                        }
+                    };
+                    if (!isPetDead) {
+                        if (!isEyesClosed) {
+                            if (petInCenterForFeed) 
+                                petEyesdx =0
+                            for (var i in sittingEyes) {
+                                ctx.beginPath();
+                                ctx.arc(sittingEyes[i].x+petdx+petEyesdx, sittingEyes[i].y, 5, 0, Math.PI * 2, true);  
+                                ctx.fill();
+                                ctx.stroke();
+                            }
+                        } else {
+                            // left eye
+                            ctx.beginPath();
+                            ctx.moveTo(sittingEyes.left.x+petdx, sittingEyes.left.y);
+                            ctx.lineTo(sittingEyes.left.x+petdx-20, sittingEyes.left.y);
+                            ctx.stroke();
+                            // right eye
+                            ctx.beginPath();
+                            ctx.moveTo(sittingEyes.right.x+petdx-10, sittingEyes.right.y);
+                            ctx.lineTo(sittingEyes.right.x+petdx+10, sittingEyes.right.y);
+                            ctx.stroke();	
+                        }
+                    } else {
+                        for (var i in sittingEyes) {
+                            ctx.fillText("X", sittingEyes[i].x+petdx,sittingEyes[i].y);
+                        }
+                    }
+                    for (var earside in ear) {
+                        ctx.beginPath();
+                        ctx.moveTo(pet.petPosVals.sitting.face.x+ear[earside][1].x+petdx, pet.petPosVals.sitting.face.y+ear[earside][1].y);
+                        ctx.lineTo(pet.petPosVals.sitting.face.x+ear[earside][2].x+petdx, pet.petPosVals.sitting.face.y+ear[earside][2].y);
+                        ctx.lineTo(pet.petPosVals.sitting.face.x+ear[earside][3].x+petdx, pet.petPosVals.sitting.face.y+ear[earside][3].y);
+                        ctx.lineTo(pet.petPosVals.sitting.face.x+ear[earside][4].x+petdx, pet.petPosVals.sitting.face.y+ear[earside][4].y);
+                        ctx.stroke();   
+                    }
+                    // mouth 
+                    if (petInCenterForFeed) {
+                        ctx.beginPath();
+                        ctx.arc(sittingEyes.left.x+petdx+10, sittingEyes.left.y+30, 5, 0, Math.PI * 2, true);  
+                        ctx.fill();
+                        ctx.stroke();
+                    }       
+                }
+                // control leg animation
+                if (!switchLegDir) {
+                    petLegdx -= 2;
+                    if (petLegdx <= -10) {
+                        switchLegDir = true;
+                    } 
+                } else {
+                    petLegdx += 2;
+                    if (petLegdx >= 10) {
+                        switchLegDir = false;
+                    } 
+                }
+                // control tail animation
+                if (!switchTailDir) {
+                    petTailAngle = petTailAngle - .10;
+                    if (petTailAngle <= -.2) {
+                        switchTailDir = true;
+                    }
+                } else {
+                    petTailAngle = petTailAngle + .10;  
+                    if (petTailAngle >= .2) {
+                        switchTailDir = false;
+                    } 
+                } 
+                // control eyes animation
+                if (!switchEyesDir) {
+                    petEyesdx = petEyesdx - .9;
+                    if (petEyesdx <= -1) {
+                        switchEyesDir = true;
+                    }
+                } else {
+                    petEyesdx = petEyesdx + .9;  
+                    if (petEyesdx >= 1) {
+                        switchEyesDir = false;
+                    } 
+                } 
+            }
+
+            function getRandNum() {
+                return Math.round(Math.random() * 9);
+            }
+
+            function gameLoop() {
+                window.setTimeout(gameLoop, 1000/30);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // blue background
+                ctx.fillStyle = "rgb(0, 153, 255)";
+                ctx.fillRect (0, 0, canvas.width, canvas.height);
+
+                fillUIText();
+                checkPetActions();
+                updatePet();
+                drawPet();
+
+                drawActionObjects();
+                checkStats();
+            }
+
+            function checkInteractionCounter() {
+                console.log(interactionCounter.numTimesSlept);
+                if (friendship >=10) {
+                    return;
+                }
+                if (interactionCounter.numTimesFed % 5 == 0) {
+                    friendship +=1;
+                }
+                if (interactionCounter.numTimesPlayed % 6 == 0) {
+                    friendship +=1;
+                }
+                if (interactionCounter.numTimesSlept % 3 == 0) {
+                    friendship +=1;
+                }
+            }
+
+            function drawActionObjects() {
+                if (actions.play && isMouseDown) {
+                    stats.fun.value += 1;
+                    ctx.fillStyle = "rgb(153, 102, 255)";
+                    ctx.beginPath();
+                    ctx.arc(currMousePos.x, currMousePos.y, 50, 0, Math.PI * 2, true);  
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = "rgb(255, 255, 102)";
+                    ctx.fillRect(currMousePos.x-51,currMousePos.y-10,102,25);
+                    ctx.fillStyle = "rgb(102, 0, 51)";
+                    ctx.fillText("yarn", currMousePos.x-30, currMousePos.y+10);
+                }
+                if (actions.feed && petInCenterForFeed) {
+                    stats.hunger.value += 1;
+                    ctx.fillStyle = "rgb(51, 204, 51)";
+                    ctx.fillRect((canvas.width/2)-40,(canvas.height/2)+190,110,50);
+                    ctx.fillStyle = "rgb(102, 51, 0)";
+                    ctx.fillRect((canvas.width/2)-40,(canvas.height/2)+180,110,20);
+                    ctx.fillText("my pet", (canvas.width/2)-25, (canvas.height/2)+230);
+                }
+            }
+
+            function checkStats() {
+                if (stats.fun.value >= 10) {
+                    stats.fun.value = 10;
+                }
+                if (stats.hunger.value >= 10) {
+                    stats.hunger.value = 10;
+                }
+                if (stats.hunger.value <= 0) {
+                    isPetDead = true;
+                    pet = {x:pet.x,y:pet.y,name:petname, position:"sitting", positionDir: "null", petPosVals: petPosition};
+                }
+                if (stats.hunger.value > 8) {
+                    if (stats.energy.value > 8) {
+                        if (stats.fun.value > 8) {
+                            mood = "v happy";
+                        } 
+                    } 
+                }
+                if (stats.hunger.value > 6 && stats.fun.value > 6) {
+                    mood = "happy"
+                }
+                if (stats.fun.value < 4) {
+                    mood = "bored"
+                }
+                if (stats.energy.value < 3) {
+                    mood = "tired";
+                }
+                if (stats.hunger.value < 2) {
+                    mood = "hangry"
+                }
+            }
+
+            function fillUIText() {
+                ctx.fillStyle = "rgb(102, 0, 51)";
+                ctx.font = "25px Comic Sans MS";
+                ctx.textAlign = "left";
+                ctx.fillText(moodText+mood, 10, 30);
+                ctx.textAlign = "center";
+                ctx.fillText(petname, (300),30);   
+                ctx.textAlign = "end";
+                ctx.fillText(stats.hunger.name+": "+stats.hunger.value, 600,30);
+                ctx.fillText(stats.energy.name+": "+stats.energy.value, 600,60);
+                ctx.fillText(stats.fun.name+": "+stats.fun.value, 600,90);
+                ctx.textAlign = "left";
+                friendshipText = "";
+                for (i = 0; i < friendship; i++) {
+                    friendshipText += "❤️";
+                }
+                ctx.fillText(friendshipText, 10,600-10);
+            }
+
+            function updatePet() {  
+                if (pet.positionDir == "right") {
+                    petdx += petdxconst;
+                    pet.x += petdxconst;
+                } else if (pet.positionDir == "left") {
+                    petdx -= petdxconst;
+                    pet.x -= petdxconst;
+                } 
+                petdxconst = 2;    
+                if (pet.x > 600 && pet.positionDir == "right") {
+                    petdxconst = -640;
+                } else if (pet.x < 100 && pet.positionDir == "left") {
+                    petdxconst = 599;
+                    petdx += petdxconst;
+                    pet.x += petdxconst;
+                    petdxconst = 2;    
+                }    
+            }
+
+            function decidePetMovement() {
+                num = getRandNum();
+                x = pet.x;
+                y = pet.y;
+                
+                if (num > 5) {
+                    pet = {x:x,y:y,name:petname, position:"sitting", positionDir: "null", petPosVals: petPosition};
+                } else {
+                    petGoRight = false;
+                    petGoLeft = false;
+                    if (num > 2) {
+                        pet = {x:x,y:y,name:petname, position:"side", positionDir: "right", petPosVals: petPosition};
+                        petGoRight = true;  
+                    } else {
+                        pet = {x:x,y:y,name:petname, position:"side", positionDir: "left", petPosVals: petPosition};
+                        petGoLeft = true;
+                    }
+                }
+                hasPetDecidedOnMovement = false;
+            }
+
+            function isPetInCenter() {
+                if (pet.x >380 && pet.x < 385) {
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+
+            function checkPetActions() {
+                if (!hasPetDecidedOnMovement && !interactWithUser && !isPetDead) {
+                    console.log("rand movement");
+                    hasPetDecidedOnMovement = true;
+                    setTimeout(function(){ decidePetMovement(); }, 3000);
+                } 
+                if (interactWithUser && actions.play && isMouseDown) {
+                    actions.sleep = false;
+                    actions.feed = false;
+                    hasPetDecidedOnMovement = false;  
+                    minVal = currMousePos.x+80;
+                    maxVal = currMousePos.x +90;  
+                    if (pet.x > maxVal) {
+                        pet = {x:pet.x,y:pet.y,name:petname, position:"side", positionDir: "left", petPosVals: petPosition};
+                        petGoLeft = true;
+                    } else if (pet.x <= minVal) {
+                        pet = {x:pet.x,y:pet.y,name:petname, position:"side", positionDir: "right", petPosVals: petPosition};
+                        petGoRight = true;
+                    }
+                    if (pet.x >minVal && pet.x <maxVal) {
+                        pet = {x:pet.x,y:pet.y,name:petname, position:"sitting", positionDir: "null", petPosVals: petPosition};
+                        ctx.fillStyle = "rgb(0, 0, 0)";
+                        ctx.beginPath();
+                        ctx.fillText("❤️", pet.x-10,pet.y+170);
+                        ctx.stroke();
+                    }
+                }
+                if (interactWithUser && actions.feed) {
+                    actions.play = false;
+                    actions.sleep = false;
+                    hasPetDecidedOnMovement = false;
+                    if (pet.x > 385) {
+                        pet = {x:pet.x,y:pet.y,name:petname, position:"side", positionDir: "left", petPosVals: petPosition};
+                        petGoLeft = true;
+                    } else if (pet.x <= 380) {
+                        pet = {x:pet.x,y:pet.y,name:petname, position:"side", positionDir: "right", petPosVals: petPosition};
+                        petGoRight = true;
+                    }
+                    if (isPetInCenter()) {
+                        petInCenterForFeed = true;
+                        pet = {x:pet.x,y:pet.y,name:petname, position:"sitting", positionDir: "null", petPosVals: petPosition};
+                    }
+                }
+                if (interactWithUser && actions.sleep) {
+                    actions.play = false;
+                    actions.feed = false;
+                    hasPetDecidedOnMovement = false;
+                    isEyesClosed = true;
+                    pet = {x:pet.x,y:pet.y,name:petname, position:"sitting", positionDir: "null", petPosVals: petPosition};
+                    ctx.fillStyle = "rgb(0, 0, 0)";
+                    ctx.beginPath();
+                    ctx.fillText("Z", pet.x,pet.y+170,30);
+                    ctx.fillText("Z", pet.x+35,pet.y+150,30);
+                    ctx.fillText("Z", pet.x+70,pet.y+130,30);
+                    ctx.stroke();
+                }
+            }
+
+            function renamePet() {
+                petname = prompt("Cat name:", "Meowly Cyrus");
+                if (petname == "null"  || petname == "") {
+                    petname = "Meowly Cyrus";
+                } 
+            }
+        </script>
+    </head>
+    <body onload="init();">
+        <center>
+        <canvas id="canvas" width="600" height="600" style="border:1px solid #000000;"></canvas>
+        <br><br>
+        <button onclick="cancelAllAction()">Cancel</button>
+        <button onclick="feedPet()">Feed</button>
+        <button onclick="spawnPetToy()">Play</button>
+        <button onclick="makeSleep()">Sleep</button>
+        <button onclick="renamePet()">Rename</button>
+    </body>
+</html>
