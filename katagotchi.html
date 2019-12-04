@@ -102,16 +102,21 @@
                     fun:{
                         name: "Fun",
                         value: 8
+                    },
+                    toilet:{
+                        name: "Toilet",
+                        value: 8
                     }
                 };
                 friendship = 0;
                 interactionCounter = {
                     numTimesFed: 1,
                     numTimesPlayed: 1,
-                    numTimesSlept: 1
+                    numTimesSlept: 1,
+                    numTimesToilet:1
                 };
                 
-                actions = {play: false, feed:false, sleep:false};
+                actions = {play: false, feed:false, sleep:false, toilet:false};
                 currMousePos = {x:-1,y:-1};
                 interactWithUser = false;
   
@@ -136,6 +141,11 @@
                         stats.fun.value -= 1;
                     }
                 }, 60000);
+                setInterval( function() {
+                    if (stats.toilet.value > 0) {
+                        stats.toilet.value -= 1;
+                    }
+                }, 120000);
             }
 
             function cancelAllAction() {
@@ -146,6 +156,7 @@
                 interactWithUser = false;
                 isEyesClosed = false;
                 petInCenterForFeed = false;
+                actions.toilet = false;
             }
 
             function spawnPetToy() {
@@ -175,6 +186,23 @@
                     interactionCounter.numTimesFed +=1;
                     checkInteractionCounter();
                 }
+            }
+
+            function goToilet() {
+                if (!isPetDead) {
+                    stats.toilet.value = 10;
+                    actions.toilet = true;
+                    interactWithUser = true;
+                    interactionCounter.numTimesToilet +=1;
+                    checkInteractionCounter();
+                    stopToilet();
+                }
+            }
+
+            function stopToilet() {
+                setTimeout(function() {
+                    cancelAllAction();
+                }, 4000);
             }
 
             function setTimeoutToWakeUpPet() {
@@ -286,6 +314,14 @@
                             for (var petPart in pet.petPosVals[petPosition]) {
                                 if (petPart == "tail") {
                                     if (!isPetDead && !isEyesClosed) {
+                                        if (actions.toilet) {
+                                            ctx.save();
+                                            ctx.translate(pet.petPosVals.sitting.tail.x+petdx,pet.petPosVals.sitting.tail.y);
+                                            ctx.rotate(50);
+                                            ctx.fillRect (0, 0, pet.petPosVals.sitting.tail.width, pet.petPosVals.sitting.tail.height);
+                                            ctx.restore();  
+                                            continue;
+                                        } 
                                         // animate tail
                                         ctx.save();
                                         ctx.translate(pet.petPosVals.sitting.tail.x+petdx,pet.petPosVals.sitting.tail.y);
@@ -359,7 +395,7 @@
                         ctx.arc(sittingEyes.left.x+petdx+10, sittingEyes.left.y+30, 5, 0, Math.PI * 2, true);  
                         ctx.fill();
                         ctx.stroke();
-                    }       
+                    }      
                 }
                 // control leg animation
                 if (!switchLegDir) {
@@ -434,6 +470,9 @@
                 if (interactionCounter.numTimesSlept % 3 == 0) {
                     friendship +=1;
                 }
+                if (interactionCounter.numTimesToilet % 7 == 0) {
+                    friendship +=1;
+                }
             }
 
             function drawActionObjects() {
@@ -457,6 +496,10 @@
                     ctx.fillRect((canvas.width/2)-40,(canvas.height/2)+180,110,20);
                     ctx.fillText("my pet", (canvas.width/2)-25, (canvas.height/2)+230);
                 }
+                if (actions.toilet) {
+                    ctx.fillStyle = "rgb(102, 51, 0)";
+                    ctx.fillRect(pet.x,pet.y+420,30,30);
+                }
             }
 
             function checkStats() {
@@ -470,21 +513,24 @@
                     isPetDead = true;
                     pet = {x:pet.x,y:pet.y,name:petname, position:"sitting", positionDir: "null", petPosVals: petPosition};
                 }
+                if (stats.hunger.value >= 6 && stats.fun.value >= 6) {
+                    mood = "happy"
+                }
                 if (stats.hunger.value > 8) {
                     if (stats.energy.value > 8) {
                         if (stats.fun.value > 8) {
                             mood = "v happy";
                         } 
                     } 
-                }
-                if (stats.hunger.value > 6 && stats.fun.value > 6) {
-                    mood = "happy"
-                }
+                }      
                 if (stats.fun.value < 4) {
                     mood = "bored"
                 }
                 if (stats.energy.value < 3) {
                     mood = "tired";
+                }
+                if (stats.toilet.value < 3) {
+                    mood = "constipated";
                 }
                 if (stats.hunger.value < 2) {
                     mood = "hangry"
@@ -502,6 +548,7 @@
                 ctx.fillText(stats.hunger.name+": "+stats.hunger.value, 600,30);
                 ctx.fillText(stats.energy.name+": "+stats.energy.value, 600,60);
                 ctx.fillText(stats.fun.name+": "+stats.fun.value, 600,90);
+                ctx.fillText(stats.toilet.name+": "+stats.toilet.value, 600,120);
                 ctx.textAlign = "left";
                 friendshipText = "";
                 for (i = 0; i < friendship; i++) {
@@ -614,6 +661,9 @@
                     ctx.fillText("Z", pet.x+70,pet.y+130,30);
                     ctx.stroke();
                 }
+                if (interactWithUser && actions.toilet) {
+                    pet = {x:pet.x,y:pet.y,name:petname, position:"sitting", positionDir: "null", petPosVals: petPosition};
+                }
             }
 
             function renamePet() {
@@ -632,6 +682,7 @@
         <button onclick="cancelAllAction()">Cancel</button>
         <button onclick="feedPet()">Feed</button>
         <button onclick="spawnPetToy()">Play</button>
+        <button onclick="goToilet()">Toilet</button>
         <button onclick="makeSleep()">Sleep</button>
         <button onclick="renamePet()">Rename</button>
     </body>
